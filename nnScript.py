@@ -84,12 +84,12 @@ def preprocess():
     train_data_temp = np.delete(train_data_temp, 0, axis=0)
     test_data = np.delete(test_data, 0, axis=0)
 
-    # now split train_data and train_label
+# now split train_data and train_label
     indices = np.random.permutation(60000)
     training_idx, validation_idx = indices[:50000], indices[50000:]
 
-    train_data, train_label = [train_data_temp[i] for i in training_idx], [train_label_temp[j] for j in training_idx]
-    validation_data, validation_label = [train_data_temp[i] for i in validation_idx], [train_label_temp[j] for j in validation_idx]
+    train_data, train_label = np.array([train_data_temp[i] for i in training_idx]), np.array([train_label_temp[j] for j in training_idx])
+    validation_data, validation_label = np.array([train_data_temp[i] for i in validation_idx]), np.array([train_label_temp[j] for j in validation_idx])
 
     return train_data, train_label, validation_data, validation_label, test_data, test_label
 
@@ -137,21 +137,33 @@ def nnObjFunction(params, *args):
     w1 = params[0:n_hidden * (n_input + 1)].reshape( (n_hidden, (n_input + 1)))
     w2 = params[(n_hidden * (n_input + 1)):].reshape((n_class, (n_hidden + 1)))
     obj_val = 0
-
     #Your code here
-    #
-    #
-    #
-    #
-    #
 
+    obj_val_temp = np.array([])
+    for i in range(len(training_data)):
+        value = training_data[i]
+        value = np.append(value, 1)
+        a1 = w1.dot(value.T)
+        z1 = sigmoid(a1)
+        z1 = np.append(z1, 1)
 
+        # z1 should be 50x1 and then we add one bias node to it and make 51x1
+        a2 = w2.dot(z1.T)
+        z2 = sigmoid(a2)
+
+        y = np.array([0]*10)
+        label = training_label[i]
+
+        y[int(label)] = 1
+
+        error = (y-z2)**2
+        obj_val += np.sum(error);
 
     #Make sure you reshape the gradient matrices to a 1D array. for instance if your gradient matrices are grad_w1 and grad_w2
     #you would use code similar to the one below to create a flat array
     #obj_grad = np.concatenate((grad_w1.flatten(), grad_w2.flatten()),0)
     obj_grad = np.array([])
-    
+
     # nnObjVal function returns two outputs. One is a scalar which equals to your loss function value.
     #Second is a vector that denotes the gradient of the loss function with respect to all of your weights.
 
@@ -200,7 +212,7 @@ train_data, train_label, validation_data,validation_label, test_data, test_label
 
 # set the number of nodes in input unit (not including bias unit)
 #rohin n_input = train_data.shape[1];
-n_input = np.shape(train_data)[0];
+n_input = np.shape(train_data)[1];
 
 # set the number of nodes in hidden unit (not including bias unit)
 n_hidden = 50;
@@ -223,7 +235,6 @@ args = (n_input, n_hidden, n_class, train_data, train_label, lambdaval)
 #Train Neural Network using fmin_cg or minimize from scipy,optimize module. Check documentation for a working example
 
 opts = {'maxiter' : 50}    # Preferred value.
-
 nn_params = minimize(nnObjFunction, initialWeights, jac=True, args=args,method='CG', options=opts)
 
 #In Case you want to use fmin_cg, you may have to split the nnObjectFunction to two functions nnObjFunctionVal
