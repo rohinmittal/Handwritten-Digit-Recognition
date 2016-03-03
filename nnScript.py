@@ -137,33 +137,61 @@ def nnObjFunction(params, *args):
     w1 = params[0:n_hidden * (n_input + 1)].reshape( (n_hidden, (n_input + 1)))
     w2 = params[(n_hidden * (n_input + 1)):].reshape((n_class, (n_hidden + 1)))
     obj_val = 0
+    dell_L = np.array([])
+
+    grad_w2 = np.array([[0.0]*n_class]*(n_hidden+1))
+    grad_w1 = np.array([[0.0]*(n_input+1)]*(n_hidden+1))
+
     #Your code here
 
-    obj_val_temp = np.array([])
     for i in range(len(training_data)):
         value = training_data[i]
         value = np.append(value, 1)
-        a1 = w1.dot(value.T)
+        #a1 = w1.dot(value.T)
+        a1 = value.dot(w1.T)
         z1 = sigmoid(a1)
         z1 = np.append(z1, 1)
 
         # z1 should be 50x1 and then we add one bias node to it and make 51x1
-        a2 = w2.dot(z1.T)
+        #a2 = w2.dot(z1.T)
+        a2 = z1.dot(w2.T)
         z2 = sigmoid(a2)
 
-        y = np.array([0]*10)
-        label = training_label[i]
+        #y = np.array([0]*10)
+        y = np.array([0]*n_class)
 
+        label = training_label[i]
         y[int(label)] = 1
 
         error = (y-z2)**2
         obj_val += np.sum(error);
+        #output to hidden
+        dell_L = (y-z2)*(1-z2)*(z2)
+        grad_w2_temp = np.array([])
+        grad_w2_temp = (z1[:,None])*(dell_L) #z1 original is 1x50
+        grad_w2 += grad_w2_temp
 
+        #hidden to input
+        part1 = (1-z1)*(z1)
+        part2 = dell_L.dot(w2)
+        part3 = part1*part2
+        grad_w1_temp = part3[:,None]*value
+        grad_w1 += grad_w1_temp
+
+    grad_w2 = (grad_w2 + (lambdaval*w2.T))/len(training_data)
+    grad_w1 = (grad_w1 + (lambdaval*w1.T))/len(training_data)
+
+    obj_val = obj_val/(2*len(training_data))
+    regComp = (np.sum(w1**2) + np.sum(w2**2))*(lambdaval/len(training_data))
+    obj_val += regComp
+
+    print obj_val
+    print grad_w1
+    print grad_w2
     #Make sure you reshape the gradient matrices to a 1D array. for instance if your gradient matrices are grad_w1 and grad_w2
     #you would use code similar to the one below to create a flat array
     #obj_grad = np.concatenate((grad_w1.flatten(), grad_w2.flatten()),0)
-    obj_grad = np.array([])
-
+    #obj_grad = np.array([])
     # nnObjVal function returns two outputs. One is a scalar which equals to your loss function value.
     #Second is a vector that denotes the gradient of the loss function with respect to all of your weights.
 
@@ -228,7 +256,7 @@ initial_w2 = initializeWeights(n_hidden, n_class);
 initialWeights = np.concatenate((initial_w1.flatten(), initial_w2.flatten()),0)
 
 # set the regularization hyper-parameter
-lambdaval = 0;
+lambdaval = 50.0;
 
 args = (n_input, n_hidden, n_class, train_data, train_label, lambdaval)
 
