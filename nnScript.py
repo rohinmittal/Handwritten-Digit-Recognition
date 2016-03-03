@@ -139,7 +139,7 @@ def nnObjFunction(params, *args):
     obj_val = 0
     dell_L = np.array([])
 
-    grad_w2 = np.array([[0.0]*n_hidden]*(n_class))
+    grad_w2 = np.array([[0.0]*(n_hidden+1)]*(n_class))
     grad_w1 = np.array([[0.0]*(n_input+1)]*(n_hidden))
 
     index_columns = [i for i in range(len(w2.T)-1)]
@@ -170,20 +170,19 @@ def nnObjFunction(params, *args):
         #output to hidden
         dell_L = (y-z2)*(1-z2)*(z2)
         grad_w2_temp = np.array([])
-        #grad_w2_temp = (z1[:,None])*(dell_L) #z1 original is 1x50
-        #grad_w2 += grad_w2_temp
-        grad_w2_temp = dell_L[:,None]*z1 #z1 original is 1x50
-        grad_w2 += grad_w2_temp
+        grad_w2_temp = dell_L[:,None]*z1_bias
+        grad_w2 += grad_w2_temp # 10x51
 
         #hidden to input
-        part1 = (1-z1)*(z1) #without bias
-        part2 = dell_L.dot(w2_temp)
+        part1 = (1-z1)*(z1) #1x50
+        part2 = dell_L.dot(w2_temp) #dell_L 1x10, w2=10x51
         part3 = part1*part2
 
         grad_w1_temp = part3[:,None]*value
-        grad_w1 += grad_w1_temp
 
-    grad_w2 = (grad_w2 + (lambdaval*w2_temp))/len(training_data)
+        grad_w1 += grad_w1_temp # 51x785
+
+    grad_w2 = (grad_w2 + (lambdaval*w2))/len(training_data)
     grad_w1 = (grad_w1 + (lambdaval*w1))/len(training_data)
 
     obj_val = obj_val/(2*len(training_data))
@@ -192,7 +191,6 @@ def nnObjFunction(params, *args):
     #Make sure you reshape the gradient matrices to a 1D array. for instance if your gradient matrices are grad_w1 and grad_w2
     #you would use code similar to the one below to create a flat array
     obj_grad = np.concatenate((grad_w1.flatten(), grad_w2.flatten()),0)
-    obj_grad = np.append(obj_grad, [0]*10)
     #obj_grad = np.array([])
     # nnObjVal function returns two outputs. One is a scalar which equals to your loss function value.
     #Second is a vector that denotes the gradient of the loss function with respect to all of your weights.
@@ -219,12 +217,17 @@ def nnPredict(w1,w2,data):
     % Output:
     % label: a column vector of predicted labels"""
 
-    labels = np.array([])
-    for i, value in data:
+    labels = np.array([0]*len(data))
+    for i in range(len(data)):
+        value = data[i]
+
+        value = np.append(value, 1)
         a1 = w1.dot(value.T)
         z1 = sigmoid(a1)
+        z1 = np.append(z1, 1)
 
         a2 = w2.dot(z1.T)
+        #a2 = z1.dot(w2.T)
         z2 = sigmoid(a2)
         # following call returns the indices of the maximum argument. The index works as the true label.
         labels[i] = np.argmax(z2)
@@ -265,7 +268,9 @@ args = (n_input, n_hidden, n_class, train_data, train_label, lambdaval)
 #Train Neural Network using fmin_cg or minimize from scipy,optimize module. Check documentation for a working example
 
 opts = {'maxiter' : 50}    # Preferred value.
+print "nnObject started"
 nn_params = minimize(nnObjFunction, initialWeights, jac=True, args=args,method='CG', options=opts)
+print "nnObject done"
 
 #In Case you want to use fmin_cg, you may have to split the nnObjectFunction to two functions nnObjFunctionVal
 #and nnObjGradient. Check documentation for this function before you proceed.
@@ -278,8 +283,10 @@ w2 = nn_params.x[(n_hidden * (n_input + 1)):].reshape((n_class, (n_hidden + 1)))
 
 
 #Test the computed parameters
+print "nnPedict started"
 
 predicted_label = nnPredict(w1,w2,train_data)
+print "nnPedict end"
 
 #find the accuracy on Training Dataset
 
