@@ -69,15 +69,18 @@ def preprocess():
 
     for key in mat:
         digData = re.findall(r'\d+', key)
+
         if len(digData) == 0:
                 continue
 
+        val = int(digData[0])
+
         value = mat.get(key)
         if key[:5] == 'train':
-                train_label_temp = np.append(train_label_temp, digData*len(mat.get(key)), axis=1)
+                train_label_temp = np.append(train_label_temp, [val]*len(mat.get(key)), axis=1)
                 train_data_temp = np.vstack((train_data_temp, value/256.0))
         else:
-                test_label = np.append(test_label, digData*len(mat.get(key)), axis=1)
+                test_label = np.append(test_label, [val]*len(mat.get(key)), axis=1)
                 test_data = np.vstack((test_data, value/256.0))
 
     #remove the extra entry added during array initialization
@@ -90,7 +93,6 @@ def preprocess():
 
     train_data, train_label = np.array([train_data_temp[i] for i in training_idx]), np.array([train_label_temp[j] for j in training_idx])
     validation_data, validation_label = np.array([train_data_temp[i] for i in validation_idx]), np.array([train_label_temp[j] for j in validation_idx])
-
     return train_data, train_label, validation_data, validation_label, test_data, test_label
 
 
@@ -217,7 +219,7 @@ def nnPredict(w1,w2,data):
     % Output:
     % label: a column vector of predicted labels"""
 
-    labels = np.array([0]*len(data))
+    labels = np.array([])
     for i in range(len(data)):
         value = data[i]
 
@@ -230,7 +232,7 @@ def nnPredict(w1,w2,data):
         #a2 = z1.dot(w2.T)
         z2 = sigmoid(a2)
         # following call returns the indices of the maximum argument. The index works as the true label.
-        labels[i] = np.argmax(z2)
+        labels = np.append(labels, np.argmax(z2))
     return labels
 
 
@@ -261,7 +263,7 @@ initial_w2 = initializeWeights(n_hidden, n_class);
 initialWeights = np.concatenate((initial_w1.flatten(), initial_w2.flatten()),0)
 
 # set the regularization hyper-parameter
-lambdaval = 50.0;
+lambdaval = 6.0;
 
 args = (n_input, n_hidden, n_class, train_data, train_label, lambdaval)
 
@@ -290,6 +292,12 @@ print "nnPedict end"
 
 #find the accuracy on Training Dataset
 
+
+predicted_label = np.array(predicted_label)
+train_label = np.array(train_label)
+validation_label = np.array(validation_label)
+test_label = np.array(test_label)
+
 print('\n Training set Accuracy:' + str(100*np.mean((predicted_label == train_label).astype(float))) + '%')
 
 predicted_label = nnPredict(w1,w2,validation_data)
@@ -303,4 +311,4 @@ predicted_label = nnPredict(w1,w2,test_data)
 
 #find the accuracy on Validation Dataset
 
-print('\n Test set Accuracy:' + + str(100*np.mean((predicted_label == test_label).astype(float))) + '%')
+print('\n Test set Accuracy:' + str(100*np.mean((predicted_label == test_label).astype(float))) + '%')
