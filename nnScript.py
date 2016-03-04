@@ -1,3 +1,4 @@
+import pickle
 import numpy as np
 from scipy.optimize import minimize
 from scipy.io import loadmat
@@ -57,7 +58,6 @@ def preprocess():
 
     mat = loadmat('mnist_all.mat') #loads the MAT object as a Dictionary
 
-    #Your code here
     train_data_temp = np.array([[0]*784])
     train_label_temp = np.array([])
     train_data = np.array([[0]*784])
@@ -78,16 +78,16 @@ def preprocess():
         value = mat.get(key)
         if key[:5] == 'train':
                 train_label_temp = np.append(train_label_temp, [val]*len(mat.get(key)), axis=1)
-                train_data_temp = np.vstack((train_data_temp, value/256.0))
+                train_data_temp = np.vstack((train_data_temp, value/255.0))
         else:
                 test_label = np.append(test_label, [val]*len(mat.get(key)), axis=1)
-                test_data = np.vstack((test_data, value/256.0))
+                test_data = np.vstack((test_data, value/255.0))
 
     #remove the extra entry added during array initialization
     train_data_temp = np.delete(train_data_temp, 0, axis=0)
     test_data = np.delete(test_data, 0, axis=0)
-
-# now split train_data and train_label
+    
+    # now split train_data and train_label
     indices = np.random.permutation(60000)
     training_idx, validation_idx = indices[:50000], indices[50000:]
 
@@ -150,19 +150,14 @@ def nnObjFunction(params, *args):
     for i in range(len(training_data)):
         value = training_data[i]
         value = np.append(value, 1)
-        #a1 = w1.dot(value.T)
         a1 = value.dot(w1.T)
         z1 = sigmoid(a1)
         z1_bias = np.append(z1, 1)
 
-        # z1 should be 50x1 and then we add one bias node to it and make 51x1
-        #a2 = w2.dot(z1.T)
         a2 = z1_bias.dot(w2.T)
         z2 = sigmoid(a2)
 
-        #y = np.array([0]*10)
         y = np.array([0]*n_class)
-
         label = training_label[i]
         y[int(label)] = 1
 
@@ -172,17 +167,16 @@ def nnObjFunction(params, *args):
         #output to hidden
         dell_L = (y-z2)*(1-z2)*(z2)
         grad_w2_temp = np.array([])
-        grad_w2_temp = dell_L[:,None]*z1_bias
-        grad_w2 += grad_w2_temp # 10x51
+        grad_w2_temp = -1*dell_L[:,None]*z1_bias
+        grad_w2 += grad_w2_temp 
 
         #hidden to input
-        part1 = (1-z1)*(z1) #1x50
-        part2 = dell_L.dot(w2_temp) #dell_L 1x10, w2=10x51
+        part1 = (1-z1)*(z1) 
+        part2 = -1*dell_L.dot(w2_temp)
         part3 = part1*part2
 
         grad_w1_temp = part3[:,None]*value
-
-        grad_w1 += grad_w1_temp # 51x785
+        grad_w1 += grad_w1_temp
 
     grad_w2 = (grad_w2 + (lambdaval*w2))/len(training_data)
     grad_w1 = (grad_w1 + (lambdaval*w1))/len(training_data)
@@ -193,7 +187,7 @@ def nnObjFunction(params, *args):
     #Make sure you reshape the gradient matrices to a 1D array. for instance if your gradient matrices are grad_w1 and grad_w2
     #you would use code similar to the one below to create a flat array
     obj_grad = np.concatenate((grad_w1.flatten(), grad_w2.flatten()),0)
-    #obj_grad = np.array([])
+    
     # nnObjVal function returns two outputs. One is a scalar which equals to your loss function value.
     #Second is a vector that denotes the gradient of the loss function with respect to all of your weights.
 
@@ -229,7 +223,6 @@ def nnPredict(w1,w2,data):
         z1 = np.append(z1, 1)
 
         a2 = w2.dot(z1.T)
-        #a2 = z1.dot(w2.T)
         z2 = sigmoid(a2)
         # following call returns the indices of the maximum argument. The index works as the true label.
         labels = np.append(labels, np.argmax(z2))
@@ -239,9 +232,7 @@ def nnPredict(w1,w2,data):
 
 
 """**************Neural Network Script Starts here********************************"""
-
 train_data, train_label, validation_data,validation_label, test_data, test_label = preprocess();
-
 
 #  Train Neural Network
 
@@ -250,7 +241,10 @@ train_data, train_label, validation_data,validation_label, test_data, test_label
 n_input = np.shape(train_data)[1];
 
 # set the number of nodes in hidden unit (not including bias unit)
-n_hidden = 50;
+n_hidden = 88;
+
+# set the regularization hyper-parameter
+lambdaval = 0.4;
 
 # set the number of nodes in output unit
 n_class = 10;
@@ -262,37 +256,25 @@ initial_w2 = initializeWeights(n_hidden, n_class);
 # unroll 2 weight matrices into single column vector
 initialWeights = np.concatenate((initial_w1.flatten(), initial_w2.flatten()),0)
 
-# set the regularization hyper-parameter
-lambdaval = 6.0;
-
 args = (n_input, n_hidden, n_class, train_data, train_label, lambdaval)
 
 #Train Neural Network using fmin_cg or minimize from scipy,optimize module. Check documentation for a working example
 
 opts = {'maxiter' : 50}    # Preferred value.
-print "nnObject started"
 nn_params = minimize(nnObjFunction, initialWeights, jac=True, args=args,method='CG', options=opts)
-print "nnObject done"
 
 #In Case you want to use fmin_cg, you may have to split the nnObjectFunction to two functions nnObjFunctionVal
 #and nnObjGradient. Check documentation for this function before you proceed.
 #nn_params, cost = fmin_cg(nnObjFunctionVal, initialWeights, nnObjGradient,args = args, maxiter = 50)
 
-
 #Reshape nnParams from 1D vector into w1 and w2 matrices
 w1 = nn_params.x[0:n_hidden * (n_input + 1)].reshape( (n_hidden, (n_input + 1)))
 w2 = nn_params.x[(n_hidden * (n_input + 1)):].reshape((n_class, (n_hidden + 1)))
 
-
 #Test the computed parameters
-print "nnPedict started"
-
 predicted_label = nnPredict(w1,w2,train_data)
-print "nnPedict end"
 
 #find the accuracy on Training Dataset
-
-
 predicted_label = np.array(predicted_label)
 train_label = np.array(train_label)
 validation_label = np.array(validation_label)
@@ -301,14 +283,12 @@ test_label = np.array(test_label)
 print('\n Training set Accuracy:' + str(100*np.mean((predicted_label == train_label).astype(float))) + '%')
 
 predicted_label = nnPredict(w1,w2,validation_data)
-
 #find the accuracy on Validation Dataset
-
 print('\n Validation set Accuracy:' + str(100*np.mean((predicted_label == validation_label).astype(float))) + '%')
 
-
 predicted_label = nnPredict(w1,w2,test_data)
-
 #find the accuracy on Validation Dataset
-
 print('\n Test set Accuracy:' + str(100*np.mean((predicted_label == test_label).astype(float))) + '%')
+
+#generate params.pickle
+pickle.dump([n_hidden,w1,w2,lambdaval],open('params.pickle','wb'))
